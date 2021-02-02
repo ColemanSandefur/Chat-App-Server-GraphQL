@@ -2,7 +2,10 @@ import SocketIO, { Socket } from "socket.io";
 import cookieParser = require("cookie");
 
 export default class SocketAuthentication {
+
+    //Holds all authenticated sockets, every socket that is in authKeys is logged in
     static authKeys: {[cookie: string]: {socket: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean}} = {}
+    private static afkTimeout = 60 * 1000; //60 seconds
 
     static authSocket(socket: SocketIO.Socket) {
         let userCookies = this.getCookies(socket);
@@ -10,16 +13,31 @@ export default class SocketAuthentication {
 
         if (authCookie === undefined || this.authKeys[authCookie] === undefined) {
             authCookie = this.generateCookie(32);
-            socket.emit("Send-Auth-Cookie", authCookie);
+            socket.emit("Send-Auth-Cookie", authCookie, false);
         }
-        
+
         userCookies.authCookie = authCookie;
         
+        if (this.authKeys[authCookie] !== undefined) {
+            this.addAuthKey(socket, authCookie);
+        }
+
         this.setCookies(socket, this.cookiesToString(userCookies));
-        this.addCookie(socket, authCookie);
+
+        return authCookie;
     }
 
-    private static addCookie(socket: SocketIO.Socket, authCookie: string) {
+    static login(username: string, password: string, socket: SocketIO.Socket, authCookie: string) {
+        if (username === "steve" && password === "bob") {
+            this.addAuthKey(socket, authCookie);
+            socket?.emit("Send-Auth-Cookie", authCookie, true);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static addAuthKey(socket: SocketIO.Socket, authCookie: string) {
         this.removeCookie(authCookie);
 
         this.authKeys[authCookie] = {
@@ -31,7 +49,7 @@ export default class SocketAuthentication {
 
     private static removeCookie(authCookie: string) {
         if (this.authKeys[authCookie] !== undefined) {
-            this.authKeys[authCookie].socket.emit("Send-Auth-Cookie", "");
+            this.authKeys[authCookie].socket?.emit("Send-Auth-Cookie", authCookie, false);
             this.authKeys[authCookie].isExpired = true;
             clearTimeout(this.authKeys[authCookie].expireCallback);
 
@@ -42,7 +60,7 @@ export default class SocketAuthentication {
     private static expireCallback(authCookie: string) {
         return setTimeout(() => {
             this.removeCookie(authCookie);
-        }, 10000)
+        }, this.afkTimeout);
     }
 
     public static resetCookieExpiration(authCookie: string) {
