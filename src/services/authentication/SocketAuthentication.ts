@@ -17,13 +17,6 @@ export default class SocketAuthentication {
         
         this.setCookies(socket, this.cookiesToString(userCookies));
         this.addCookie(socket, authCookie);
-
-        console.log(this.getCookies(socket));
-
-        socket.on("*", () => {
-            this.resetCookieExpiration(this.getCookies(socket).authCookie);
-            console.log("updated cookie");
-        })
     }
 
     private static addCookie(socket: SocketIO.Socket, authCookie: string) {

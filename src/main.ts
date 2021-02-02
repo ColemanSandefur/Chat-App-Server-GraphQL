@@ -16,6 +16,7 @@ const io: SocketIO.Server = new SocketIO.Server(server, {
 });
 
 import MyQuery from "./schema"
+import SocketAuthentication from './services/authentication/SocketAuthentication';
 import { SocketManager } from './services/socket.io/SocketManager';
 
 app.use(cors());
@@ -28,6 +29,11 @@ io.on("connection", (socket: SocketIO.Socket) => {
     SocketManager.addListeners(socket);
 });
 
+io.use((socket, next) => {
+    SocketAuthentication.resetCookieExpiration(SocketAuthentication.getCookies(socket).authCookie);
+    next();
+})
+
 let getIO = () => {
     return io;
 }
@@ -38,9 +44,3 @@ app.use('/graphql', graphqlHTTP({
     schema: MyQuery,
     graphiql: true
 }));
-
-app.post('/setCookies', (req, res) => {
-    console.log("set cookies");
-    res.cookie("testAuth", "whatIsUp");
-    res.send("");
-})
