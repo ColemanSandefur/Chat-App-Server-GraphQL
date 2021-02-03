@@ -69,6 +69,10 @@ app.post("/login", (req, res) => {
 
     let authCookie = req.body.authCookie;
     let socket = SocketManager.sockets[authCookie]
+    if (socket === undefined) {
+        res.send({error: "No socket found"});
+        return;
+    }
     let didLogin = SocketAuthentication.login(username, password, socket, authCookie);
 
     if (didLogin) {

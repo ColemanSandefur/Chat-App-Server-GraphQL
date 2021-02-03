@@ -5,7 +5,7 @@ export default class SocketAuthentication {
 
     //Holds all authenticated sockets, every socket that is in authKeys is logged in
     static authKeys: {[cookie: string]: {socket: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean}} = {}
-    private static afkTimeout = 60 * 1000; //60 seconds
+    private static afkTimeout = 10 * 60 * 1000; //10 minutes
 
     static authSocket(socket: SocketIO.Socket) {
         let userCookies = this.getCookies(socket);
@@ -47,7 +47,7 @@ export default class SocketAuthentication {
         };
     }
 
-    private static removeCookie(authCookie: string) {
+    public static removeCookie(authCookie: string) {
         if (this.authKeys[authCookie] !== undefined) {
             this.authKeys[authCookie].socket?.emit("Send-Auth-Cookie", authCookie, false);
             this.authKeys[authCookie].isExpired = true;

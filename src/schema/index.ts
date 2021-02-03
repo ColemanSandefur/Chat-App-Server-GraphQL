@@ -61,8 +61,14 @@ const MutationType = new GraphQLObjectType({
                 message: {type: GraphQLString}
             },
             resolve: (root, args) => {
-                if (!Authenticate(<AuthenticationDataTypes>args)) {
+                let dataArgs = <AuthenticationDataTypes & {message: string}> args;
+
+                if (!Authenticate(dataArgs)) {
                     return null;
+                }
+
+                if (dataArgs.message.trim().length == 0) {
+                    return null
                 }
 
                 let id = messages.length;
