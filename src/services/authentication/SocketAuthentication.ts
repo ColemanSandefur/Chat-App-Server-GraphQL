@@ -4,7 +4,7 @@ import cookieParser = require("cookie");
 export default class SocketAuthentication {
 
     //Holds all authenticated sockets, every socket that is in authKeys is logged in
-    static authKeys: {[cookie: string]: {socket: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean}} = {}
+    static authKeys: {[cookie: string]: {socket?: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean}} = {}
     private static afkTimeout = 10 * 60 * 1000; //10 minutes
 
     static authSocket(socket: SocketIO.Socket) {
@@ -12,6 +12,7 @@ export default class SocketAuthentication {
         let authCookie = userCookies.authCookie;
 
         if (authCookie === undefined || this.authKeys[authCookie] === undefined) {
+            console.log("undefined");
             authCookie = this.generateCookie(32);
             socket.emit("Send-Auth-Cookie", authCookie, false);
         }
@@ -20,6 +21,7 @@ export default class SocketAuthentication {
         
         if (this.authKeys[authCookie] !== undefined) {
             this.addAuthKey(socket, authCookie);
+            socket.emit("Send-Auth-Cookie", authCookie, true);
         }
 
         this.setCookies(socket, this.cookiesToString(userCookies));

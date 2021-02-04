@@ -13,7 +13,6 @@ export class SocketManager {
         this.sockets[authCookie] = socket;
 
         socket.on("disconnect", (reason) => {
-            SocketAuthentication.removeCookie(authCookie);
             delete this.sockets[authCookie];
         });
     }

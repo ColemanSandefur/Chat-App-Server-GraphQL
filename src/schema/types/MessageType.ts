@@ -6,8 +6,8 @@ import {
 } from "graphql";
 
 const MessageType: GraphQLObjectType = new GraphQLObjectType({
-    name: "Film",
-    description: "...",
+    name: "Message",
+    description: "A user's message",
     
     fields: () => ({
         text: {type: GraphQLString},
