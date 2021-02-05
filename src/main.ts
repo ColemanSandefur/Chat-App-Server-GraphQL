@@ -7,6 +7,7 @@ import bodyParser = require("body-parser");
 import http = require("http");
 const server = http.createServer(app);
 import SocketIO from "socket.io"
+import path = require("path");
 
 const io: SocketIO.Server = new SocketIO.Server(server, {
     cors: {
@@ -23,6 +24,7 @@ import { SocketManager } from './services/socket.io/SocketManager';
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(express.static(__dirname + "/../public"));
 
 server.listen(5000, () => {
     console.log("running on localhost:5000");

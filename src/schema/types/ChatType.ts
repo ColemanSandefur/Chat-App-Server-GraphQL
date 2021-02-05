@@ -18,6 +18,12 @@ const ChatType: GraphQLObjectType = new GraphQLObjectType({
                 return root.chatID
             }
         },
+        imageURL: {
+            type: GraphQLString,
+            resolve: (root) => {
+                return root.imageURL + "";
+            }
+        },
         message: {
             type: GraphQLList(MessageType),
             args: {

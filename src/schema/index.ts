@@ -22,6 +22,7 @@ interface message {
 
 interface chat {
     chatID: number,
+    imageURL?: string,
     messages: {[id: number]: message},
     messageArray: message[];
 }
@@ -31,6 +32,7 @@ let chats: {
 } = {
     [0]: {
         chatID: 0,
+        imageURL: "http://localhost:5000/images/3e273ca3b0f177232784b5c1a998feb620633dd9_full.jpg",
         messages: {
             [0]: {text: "Sup", id: 0, userID: 0},
             [1]: {text: "How are you", id: 1, userID: 1}
