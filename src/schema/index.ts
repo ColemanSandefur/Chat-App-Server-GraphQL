@@ -12,6 +12,7 @@ import MessageType from "./types/MessageType";
 import {AuthenticationPropArgs, AuthenticationDataTypes, Authenticate} from "../services/authentication/Authentication"
 import {getIO} from "../main";
 import ChatType from "./types/ChatType";
+import SocketAuthentication from "../services/authentication/SocketAuthentication";
 
 interface message {
     text: string, 
@@ -79,9 +80,24 @@ const QueryType = new GraphQLObjectType({
                     return null;
                 }
 
+                let userData = SocketAuthentication.authKeys[dataArgs.authKey].userData;
+
                 if (dataArgs.chatID === undefined) {
-                    return mapToArray(chats);
+                    let data = userData.availableChats.map((value) => {
+                        return chats[value];
+                    });
+
+                    return data;
                 }
+
+                let chatID = parseInt(dataArgs.chatID + "");
+                let arr = userData.availableChats;
+
+                if (!(arr.includes(chatID + 0))) {
+                    console.log("Don't have access to chat");
+                    return null;
+                }
+                
                 return [chats[args.chatID]]
             }
         }
@@ -101,10 +117,17 @@ const MutationType = new GraphQLObjectType({
                 chatID: {type: GraphQLID}
             },
             resolve: (root, args) => {
-                let dataArgs = <AuthenticationDataTypes & {message: string}> args;
+                let dataArgs = <AuthenticationDataTypes & {message: string, chatID: number}> args;
 
                 if (!Authenticate(dataArgs)) {
                     console.log("failed to auth");
+                    return null;
+                }
+
+                let userData = SocketAuthentication.authKeys[dataArgs.authKey].userData
+
+                if (!userData.availableChats.includes(parseInt(args.chatID))) {
+                    console.log("not authorized to post here");
                     return null;
                 }
 

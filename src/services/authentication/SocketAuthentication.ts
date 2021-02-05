@@ -1,10 +1,11 @@
 import SocketIO, { Socket } from "socket.io";
 import cookieParser = require("cookie");
+import UserData from "../UserData";
 
 export default class SocketAuthentication {
 
     //Holds all authenticated sockets, every socket that is in authKeys is logged in
-    static authKeys: {[cookie: string]: {socket?: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean}} = {}
+    static authKeys: {[cookie: string]: {socket?: SocketIO.Socket, expireCallback: NodeJS.Timeout, isExpired: boolean, userData: UserData}} = {}
     private static afkTimeout = 10 * 60 * 1000; //10 minutes
 
     static authSocket(socket: SocketIO.Socket) {
@@ -12,7 +13,6 @@ export default class SocketAuthentication {
         let authCookie = userCookies.authCookie;
 
         if (authCookie === undefined || this.authKeys[authCookie] === undefined) {
-            console.log("undefined");
             authCookie = this.generateCookie(32);
             socket.emit("Send-Auth-Cookie", authCookie, false);
         }
@@ -20,7 +20,7 @@ export default class SocketAuthentication {
         userCookies.authCookie = authCookie;
         
         if (this.authKeys[authCookie] !== undefined) {
-            this.addAuthKey(socket, authCookie);
+            this.resetCookieExpiration(authCookie);
             socket.emit("Send-Auth-Cookie", authCookie, true);
         }
 
@@ -31,7 +31,7 @@ export default class SocketAuthentication {
 
     static login(username: string, password: string, socket: SocketIO.Socket, authCookie: string) {
         if (username === "steve" && password === "bob") {
-            this.addAuthKey(socket, authCookie);
+            this.addAuthKey(socket, authCookie, new UserData(1, [0, 1]));
             socket?.emit("Send-Auth-Cookie", authCookie, true);
             return true;
         }
@@ -39,13 +39,14 @@ export default class SocketAuthentication {
         return false;
     }
 
-    private static addAuthKey(socket: SocketIO.Socket, authCookie: string) {
+    private static addAuthKey(socket: SocketIO.Socket, authCookie: string, userData: UserData) {
         this.removeCookie(authCookie);
 
         this.authKeys[authCookie] = {
             socket: socket,
             expireCallback: this.expireCallback(authCookie),
-            isExpired: false
+            isExpired: false,
+            userData: userData
         };
     }
 
