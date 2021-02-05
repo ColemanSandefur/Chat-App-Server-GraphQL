@@ -10,7 +10,7 @@ import {
 
 import MessageType from "./types/MessageType";
 import {AuthenticationPropArgs, AuthenticationDataTypes, Authenticate} from "../services/authentication/Authentication"
-import {getIO} from "../main";
+import {getIO, io} from "../main";
 import ChatType from "./types/ChatType";
 import SocketAuthentication from "../services/authentication/SocketAuthentication";
 
@@ -173,13 +173,12 @@ const MutationType = new GraphQLObjectType({
                     return null
                 }
 
-                let id = numMessages;
+                let messageID = numMessages;
                 
-                let item = createMessage(args.message, id, userData.userID);
+                let item = createMessage(args.message, messageID, userData.userID);
                 addMessage(item, args.chatID);
 
-                //need to change emits message to everyone even if they don't have access
-                getIO()?.emit("New-Message", (id));
+                SocketAuthentication.getChatRoom(dataArgs.chatID).emit("New-Message", (messageID));
 
                 numMessages++;
 

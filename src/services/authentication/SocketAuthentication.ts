@@ -1,4 +1,5 @@
 import SocketIO from "socket.io";
+import { getIO, io } from "../../main";
 import UserData from "../UserData";
 
 import CookieManager from "./CookieManager";
@@ -22,6 +23,9 @@ export default class SocketAuthentication {
         
         if (this.authKeys[authCookie] !== undefined) {
             this.resetAuthKeyExpiration(authCookie);
+            this.authKeys[authCookie].userData.availableChats.forEach(chatID => {
+                this.addToChatRoom(chatID, socket);
+            });
             this.sendAuthCookie(authCookie, true, socket);
         }
 
@@ -33,6 +37,9 @@ export default class SocketAuthentication {
     static login(username: string, password: string, socket: SocketIO.Socket, authCookie: string) {
         if (username === "steve" && password === "bob") {
             this.addAuthKey(socket, authCookie, new UserData(1, [0, 1]));
+            this.authKeys[authCookie].userData.availableChats.forEach(chatID => {
+                this.addToChatRoom(chatID, socket);
+            });
             this.sendAuthCookie(authCookie, true, socket);
             return true;
         }
@@ -85,5 +92,13 @@ export default class SocketAuthentication {
         } else {
             socket?.emit("Send-Auth-Cookie", authCookie, false);
         }
+    }
+
+    public static addToChatRoom(chatID: number, socket?: SocketIO.Socket) {
+        socket?.join(`chat-${chatID}`);
+    }
+
+    public static getChatRoom(chatID: number) {
+        return io.to(`chat-${chatID}`);
     }
 }

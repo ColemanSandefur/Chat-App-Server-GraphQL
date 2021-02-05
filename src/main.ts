@@ -44,7 +44,7 @@ let getIO = () => {
     return io;
 }
 
-export {getIO}
+export {getIO, io}
 
 app.use('/graphql', graphqlHTTP({
     schema: MyQuery,

@@ -6,7 +6,6 @@ export class SocketManager {
     static sockets: {[key: string]: SocketIO.Socket} = {}
 
     static addListeners(socket: SocketIO.Socket) {
-
         //will make sure that the socket has a key (cookie)
         const authCookie = SocketAuthentication.authSocket(socket);
 
