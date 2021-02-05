@@ -1,6 +1,7 @@
-import SocketIO, { Socket } from "socket.io";
-import cookieParser = require("cookie");
+import SocketIO from "socket.io";
 import UserData from "../UserData";
+
+import CookieManager from "./CookieManager";
 
 export default class SocketAuthentication {
 
@@ -9,22 +10,22 @@ export default class SocketAuthentication {
     private static afkTimeout = 10 * 60 * 1000; //10 minutes
 
     static authSocket(socket: SocketIO.Socket) {
-        let userCookies = this.getCookies(socket);
+        let userCookies = CookieManager.getCookies(socket);
         let authCookie = userCookies.authCookie;
 
         if (authCookie === undefined || this.authKeys[authCookie] === undefined) {
-            authCookie = this.generateCookie(32);
-            socket.emit("Send-Auth-Cookie", authCookie, false);
+            authCookie = CookieManager.generateCookie(32);
+            this.sendAuthCookie(authCookie, false, socket);
         }
 
         userCookies.authCookie = authCookie;
         
         if (this.authKeys[authCookie] !== undefined) {
-            this.resetCookieExpiration(authCookie);
-            socket.emit("Send-Auth-Cookie", authCookie, true);
+            this.resetAuthKeyExpiration(authCookie);
+            this.sendAuthCookie(authCookie, true, socket);
         }
 
-        this.setCookies(socket, this.cookiesToString(userCookies));
+        CookieManager.setCookies(socket, CookieManager.cookiesToString(userCookies));
 
         return authCookie;
     }
@@ -32,7 +33,7 @@ export default class SocketAuthentication {
     static login(username: string, password: string, socket: SocketIO.Socket, authCookie: string) {
         if (username === "steve" && password === "bob") {
             this.addAuthKey(socket, authCookie, new UserData(1, [0, 1]));
-            socket?.emit("Send-Auth-Cookie", authCookie, true);
+            this.sendAuthCookie(authCookie, true, socket);
             return true;
         }
 
@@ -40,7 +41,7 @@ export default class SocketAuthentication {
     }
 
     private static addAuthKey(socket: SocketIO.Socket, authCookie: string, userData: UserData) {
-        this.removeCookie(authCookie);
+        this.removeAuthKey(authCookie);
 
         this.authKeys[authCookie] = {
             socket: socket,
@@ -50,9 +51,10 @@ export default class SocketAuthentication {
         };
     }
 
-    public static removeCookie(authCookie: string) {
+    public static removeAuthKey(authCookie: string) {
         if (this.authKeys[authCookie] !== undefined) {
-            this.authKeys[authCookie].socket?.emit("Send-Auth-Cookie", authCookie, false);
+            this.sendAuthCookie(authCookie, false, this.authKeys[authCookie].socket);
+
             this.authKeys[authCookie].isExpired = true;
             clearTimeout(this.authKeys[authCookie].expireCallback);
 
@@ -62,11 +64,11 @@ export default class SocketAuthentication {
 
     private static expireCallback(authCookie: string) {
         return setTimeout(() => {
-            this.removeCookie(authCookie);
+            this.removeAuthKey(authCookie);
         }, this.afkTimeout);
     }
 
-    public static resetCookieExpiration(authCookie: string) {
+    public static resetAuthKeyExpiration(authCookie: string) {
         if (this.authKeys[authCookie] !== undefined && this.authKeys[authCookie].isExpired === false) {
             clearTimeout(this.authKeys[authCookie]?.expireCallback);
 
@@ -74,31 +76,14 @@ export default class SocketAuthentication {
         }
     }
 
-    static getCookies(socket: SocketIO.Socket) {
-        return cookieParser.parse(socket.request.headers.cookie + "");
-    }
+    private static sendAuthCookie(authCookie: string, loggedIn: boolean, socket?: SocketIO.Socket) {
 
-    static cookiesToString(data: {[key: string]: string}) {
-        let output = "";
-        Object.keys(data).forEach(key => {
-            output += `${key}=${data[key]}; `;
-        });
-        output = output.substr(0, output.length - 2);
-        return output;
-    }
-
-    static setCookies(socket: SocketIO.Socket, data: string) {
-        socket.request.headers.cookie = data;
-    }
-
-    static generateCookie(length: number) {
-        let data = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/";
-        let cookie = "";
-
-        for (let i = 0; i < length; i++) {
-            cookie += data.charAt(Math.random() * data.length);
+        if (loggedIn) {
+            socket?.emit("Send-Auth-Cookie", authCookie, true, {
+                userID: this.authKeys[authCookie].userData.userID
+            });
+        } else {
+            socket?.emit("Send-Auth-Cookie", authCookie, false);
         }
-
-        return cookie;
     }
 }

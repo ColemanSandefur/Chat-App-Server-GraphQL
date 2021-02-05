@@ -14,7 +14,7 @@ export interface AuthenticationDataTypes {
 
 export function Authenticate(data: AuthenticationDataTypes) {
     if (Object.keys(SocketAuthentication.authKeys).includes(data.authKey)) {
-        SocketAuthentication.resetCookieExpiration(data.authKey);
+        SocketAuthentication.resetAuthKeyExpiration(data.authKey);
         
         return true;
     }

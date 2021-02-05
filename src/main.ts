@@ -20,6 +20,7 @@ const io: SocketIO.Server = new SocketIO.Server(server, {
 import MyQuery from "./schema"
 import SocketAuthentication from './services/authentication/SocketAuthentication';
 import { SocketManager } from './services/socket.io/SocketManager';
+import CookieManager from './services/authentication/CookieManager';
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -35,7 +36,7 @@ io.on("connection", (socket: SocketIO.Socket) => {
 });
 
 io.use((socket, next) => {
-    SocketAuthentication.resetCookieExpiration(SocketAuthentication.getCookies(socket).authCookie);
+    SocketAuthentication.resetAuthKeyExpiration(CookieManager.getCookies(socket).authCookie);
     next();
 })
 

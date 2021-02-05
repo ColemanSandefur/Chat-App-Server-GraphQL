@@ -22,6 +22,7 @@ interface message {
 
 interface chat {
     chatID: number,
+    chatName: string,
     imageURL?: string,
     messages: {[id: number]: message},
     messageArray: message[];
@@ -32,6 +33,7 @@ let chats: {
 } = {
     [0]: {
         chatID: 0,
+        chatName: "First Chat",
         imageURL: "http://localhost:5000/images/3e273ca3b0f177232784b5c1a998feb620633dd9_full.jpg",
         messages: {
             [0]: {text: "Sup", id: 0, userID: 0},
@@ -44,6 +46,7 @@ let chats: {
     },
     [1]: {
         chatID: 1,
+        chatName: "Test Chat",
         messages: {
             [0]: {text: "Welcome to chat 1", id: 2, userID: 1}
         },
@@ -62,6 +65,38 @@ let mapToArray = <T>(data: {[key: number]: T}) => {
 let numMessages = 3;
 
 export {chats, numMessages};
+
+const getUserData = (authKey: string) => {
+    return SocketAuthentication.authKeys[authKey]?.userData;
+}
+
+const createMessage = (text: string, id: number, userID: number): message => {
+    return {
+        text: text,
+        userID: userID,
+        id: id
+    }
+}
+
+const addMessage = (message: message, chatID: number) => {
+    chats[chatID].messages[message.id] = message;
+    chats[chatID].messageArray.push(message);
+}
+
+const createChat = (chatID: number, chatName: string) => {
+    let chat: chat = {
+        chatID: chatID,
+        chatName: chatName,
+        messages: {},
+        messageArray: []
+    };
+
+    return chat;
+}
+
+const addChat = (chat: chat) => {
+    chats[chat.chatID] = chat;
+}
 
 const QueryType = new GraphQLObjectType({
     name: "Query", 
@@ -126,7 +161,7 @@ const MutationType = new GraphQLObjectType({
                     return null;
                 }
 
-                let userData = SocketAuthentication.authKeys[dataArgs.authKey].userData
+                let userData = getUserData(dataArgs.authKey);
 
                 if (!userData.availableChats.includes(parseInt(args.chatID))) {
                     console.log("not authorized to post here");
@@ -140,15 +175,41 @@ const MutationType = new GraphQLObjectType({
 
                 let id = numMessages;
                 
-                let item = {text: args.message, id: id, userID: 0};
-                chats[args.chatID].messages[id] = item;
-                chats[args.chatID].messageArray.push(item);
+                let item = createMessage(args.message, id, userData.userID);
+                addMessage(item, args.chatID);
 
+                //need to change emits message to everyone even if they don't have access
                 getIO()?.emit("New-Message", (id));
 
                 numMessages++;
 
                 return item;
+            }
+        },
+
+        createChat: {
+            type: ChatType,
+            args: {
+                ...AuthenticationPropArgs,
+                chatName: {type: GraphQLString}
+            },
+            resolve: (root, args) => {
+                let dataArgs = <AuthenticationDataTypes & {chatName: string}> args;
+                if (!Authenticate(dataArgs)) {
+                    return null;
+                }
+
+                let userData = getUserData(dataArgs.authKey);
+
+                let chatID = Object.keys(chats).length;
+
+                let chat = createChat(chatID, dataArgs.chatName);
+
+                userData.availableChats.push(chatID);
+
+                addChat(chat);
+
+                return chat;
             }
         }
     })
