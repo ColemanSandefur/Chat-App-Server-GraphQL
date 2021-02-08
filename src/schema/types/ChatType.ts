@@ -4,6 +4,7 @@ import {
     GraphQLObjectType,
     GraphQLString,
 } from "graphql";
+import QueryManager from "../../services/mongodb/QueryManager";
 import { Authenticate, AuthenticationDataTypes, AuthenticationPropArgs } from "../../services/authentication/Authentication";
 import MessageType from "./MessageType";
 
@@ -13,9 +14,9 @@ const ChatType: GraphQLObjectType = new GraphQLObjectType({
     
     fields: () => ({
         chatID: {
-            type: GraphQLID,
+            type: GraphQLString,
             resolve: (root) => {
-                return root.chatID
+                return root._id;
             }
         },
         imageURL: {
@@ -24,22 +25,29 @@ const ChatType: GraphQLObjectType = new GraphQLObjectType({
                 return root.imageURL + "";
             }
         },
+        chatName: {
+            type: GraphQLString
+        },
         message: {
             type: GraphQLList(MessageType),
             args: {
                 ...AuthenticationPropArgs,
-                id: {type: GraphQLID}
+                id: {type: GraphQLString}
             },
-            resolve: (root, args) => {
-                if (!Authenticate(<AuthenticationDataTypes>args)) {
-                    return null;
-                }
+            resolve: async (root, args) => {
+                // if (!Authenticate(<AuthenticationDataTypes>args)) {
+                //     return null;
+                // }
 
                 if (args.id != null) {
-                    return [root.messages[args.id]];
+                    let messages = await QueryManager.getMessage({id: args.id, chatID: root._id});
+
+                    return messages;
                 }
 
-                return root.messageArray;
+                let messages = await QueryManager.getMessage({chatID: root._id});
+
+                return messages;
             },
         },
     })

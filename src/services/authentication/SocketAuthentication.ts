@@ -1,5 +1,6 @@
 import SocketIO from "socket.io";
 import { getIO, io } from "../../main";
+import QueryManager from "../mongodb/QueryManager";
 import UserData from "../UserData";
 
 import CookieManager from "./CookieManager";
@@ -36,12 +37,14 @@ export default class SocketAuthentication {
 
     static login(username: string, password: string, socket: SocketIO.Socket, authCookie: string) {
         if (username === "steve" && password === "bob") {
-            this.addAuthKey(socket, authCookie, new UserData(1, [0, 1]));
-            this.authKeys[authCookie].userData.availableChats.forEach(chatID => {
-                this.addToChatRoom(chatID, socket);
+            QueryManager.getUser({userID: "602083dc7ab2b303ca9a669c"}).then((data) => {
+                this.addAuthKey(socket, authCookie, new UserData(data));
+                this.authKeys[authCookie].userData.availableChats.forEach(chatID => {
+                    this.addToChatRoom(chatID, socket);
+                });
+                this.sendAuthCookie(authCookie, true, socket);
+                return true;
             });
-            this.sendAuthCookie(authCookie, true, socket);
-            return true;
         }
 
         return false;
@@ -94,11 +97,11 @@ export default class SocketAuthentication {
         }
     }
 
-    public static addToChatRoom(chatID: number, socket?: SocketIO.Socket) {
+    public static addToChatRoom(chatID: string, socket?: SocketIO.Socket) {
         socket?.join(`chat-${chatID}`);
     }
 
-    public static getChatRoom(chatID: number) {
+    public static getChatRoom(chatID: string) {
         return io.to(`chat-${chatID}`);
     }
 }

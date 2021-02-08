@@ -9,93 +9,14 @@ import {
 } from "graphql";
 
 import MessageType from "./types/MessageType";
-import {AuthenticationPropArgs, AuthenticationDataTypes, Authenticate} from "../services/authentication/Authentication"
+import {AuthenticationPropArgs, AuthenticationDataTypes, Authenticate, HasChatAccess} from "../services/authentication/Authentication"
 import {getIO, io} from "../main";
 import ChatType from "./types/ChatType";
 import SocketAuthentication from "../services/authentication/SocketAuthentication";
-
-interface message {
-    text: string, 
-    id: number,
-    userID: number
-}
-
-interface chat {
-    chatID: number,
-    chatName: string,
-    imageURL?: string,
-    messages: {[id: number]: message},
-    messageArray: message[];
-}
-
-let chats: {
-    [chatID: number]: chat
-} = {
-    [0]: {
-        chatID: 0,
-        chatName: "First Chat",
-        imageURL: "http://localhost:5000/images/3e273ca3b0f177232784b5c1a998feb620633dd9_full.jpg",
-        messages: {
-            [0]: {text: "Sup", id: 0, userID: 0},
-            [1]: {text: "How are you", id: 1, userID: 1}
-        },
-        messageArray: [
-            {text: "Sup", id: 0, userID: 0},
-            {text: "How are you", id: 1, userID: 1}
-        ]
-    },
-    [1]: {
-        chatID: 1,
-        chatName: "Test Chat",
-        messages: {
-            [0]: {text: "Welcome to chat 1", id: 2, userID: 1}
-        },
-        messageArray: [
-            {text: "Welcome to chat 1", id: 2, userID: 1}
-        ]
-    }
-}
-
-let mapToArray = <T>(data: {[key: number]: T}) => {
-    return Object.keys(data).map((chatID: unknown) => {
-        return data[<number>chatID];
-    })
-}
-
-let numMessages = 3;
-
-export {chats, numMessages};
+import QueryManager from "../services/mongodb/QueryManager";
 
 const getUserData = (authKey: string) => {
     return SocketAuthentication.authKeys[authKey]?.userData;
-}
-
-const createMessage = (text: string, id: number, userID: number): message => {
-    return {
-        text: text,
-        userID: userID,
-        id: id
-    }
-}
-
-const addMessage = (message: message, chatID: number) => {
-    chats[chatID].messages[message.id] = message;
-    chats[chatID].messageArray.push(message);
-}
-
-const createChat = (chatID: number, chatName: string) => {
-    let chat: chat = {
-        chatID: chatID,
-        chatName: chatName,
-        messages: {},
-        messageArray: []
-    };
-
-    return chat;
-}
-
-const addChat = (chat: chat) => {
-    chats[chat.chatID] = chat;
 }
 
 const QueryType = new GraphQLObjectType({
@@ -107,10 +28,10 @@ const QueryType = new GraphQLObjectType({
             type: GraphQLList(ChatType),
             args: {
                 ...AuthenticationPropArgs,
-                chatID: {type: GraphQLID}
+                chatID: {type: GraphQLString}
             },
-            resolve: (root, args) => {
-                let dataArgs = <AuthenticationDataTypes & {chatID: number}> args;
+            resolve: async (root, args) => {
+                let dataArgs = <AuthenticationDataTypes & {chatID: string}> args;
                 
                 if (!Authenticate(dataArgs)) {
                     console.log("failed to auth");
@@ -120,22 +41,23 @@ const QueryType = new GraphQLObjectType({
                 let userData = SocketAuthentication.authKeys[dataArgs.authKey].userData;
 
                 if (dataArgs.chatID === undefined) {
-                    let data = userData.availableChats.map((value) => {
-                        return chats[value];
+                    let promiseArr = userData.availableChats.map((value) => {
+                        return QueryManager.getChat({chatID: value});
                     });
+
+                    let data = await Promise.all(promiseArr);
 
                     return data;
                 }
 
-                let chatID = parseInt(dataArgs.chatID + "");
-                let arr = userData.availableChats;
-
-                if (!(arr.includes(chatID + 0))) {
+                if (!HasChatAccess(userData, dataArgs.chatID)) {
                     console.log("Don't have access to chat");
                     return null;
                 }
-                
-                return [chats[args.chatID]]
+
+                let chat = await QueryManager.getChat({chatID: dataArgs.chatID});
+
+                return [chat];
             }
         }
     }),
@@ -151,10 +73,10 @@ const MutationType = new GraphQLObjectType({
             args: {
                 ...AuthenticationPropArgs,
                 message: {type: GraphQLString},
-                chatID: {type: GraphQLID}
+                chatID: {type: GraphQLString}
             },
-            resolve: (root, args) => {
-                let dataArgs = <AuthenticationDataTypes & {message: string, chatID: number}> args;
+            resolve: async (root, args) => {
+                let dataArgs = <AuthenticationDataTypes & {message: string, chatID: string}> args;
 
                 if (!Authenticate(dataArgs)) {
                     console.log("failed to auth");
@@ -163,8 +85,8 @@ const MutationType = new GraphQLObjectType({
 
                 let userData = getUserData(dataArgs.authKey);
 
-                if (!userData.availableChats.includes(parseInt(args.chatID))) {
-                    console.log("not authorized to post here");
+                if (!HasChatAccess(userData, dataArgs.chatID)) {
+                    console.log("Don't have access to chat");
                     return null;
                 }
 
@@ -173,16 +95,11 @@ const MutationType = new GraphQLObjectType({
                     return null
                 }
 
-                let messageID = numMessages;
-                
-                let item = createMessage(args.message, messageID, userData.userID);
-                addMessage(item, args.chatID);
+                let messages = await QueryManager.addMessage({chatID: dataArgs.chatID, text: dataArgs.message, userID: userData.userID});
 
-                SocketAuthentication.getChatRoom(dataArgs.chatID).emit("New-Message", (messageID));
+                SocketAuthentication.getChatRoom(dataArgs.chatID).emit("New-Message", (messages[0]._id));
 
-                numMessages++;
-
-                return item;
+                return messages[0];
             }
         },
 
@@ -192,23 +109,22 @@ const MutationType = new GraphQLObjectType({
                 ...AuthenticationPropArgs,
                 chatName: {type: GraphQLString}
             },
-            resolve: (root, args) => {
-                let dataArgs = <AuthenticationDataTypes & {chatName: string}> args;
-                if (!Authenticate(dataArgs)) {
+            resolve: async (root, _args) => {
+                let args = <AuthenticationDataTypes & {chatName: string}> _args;
+
+                if (!Authenticate(args)) {
                     return null;
                 }
 
-                let userData = getUserData(dataArgs.authKey);
+                let userData = getUserData(args.authKey);
 
-                let chatID = Object.keys(chats).length;
+                let chats = await QueryManager.createChat({chatName: args.chatName})
 
-                let chat = createChat(chatID, dataArgs.chatName);
+                userData.availableChats.push(chats[0]._id);
 
-                userData.availableChats.push(chatID);
+                QueryManager.giveChatAccess({userID: userData.userID, chatID: chats[0]._id});
 
-                addChat(chat);
-
-                return chat;
+                return chats;
             }
         }
     })

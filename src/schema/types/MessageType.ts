@@ -11,8 +11,13 @@ const MessageType: GraphQLObjectType = new GraphQLObjectType({
     
     fields: () => ({
         text: {type: GraphQLString},
-        id: {type: GraphQLID},
-        userID: {type: GraphQLID}
+        id: {
+            type: GraphQLString,
+            resolve: (root) => {
+                return root._id;
+            }
+        },
+        userID: {type: GraphQLString}
     })
 });
 

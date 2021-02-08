@@ -1,9 +1,11 @@
-export default class UserData {
-    availableChats: number[];
-    userID: number;
+import UserType from "./mongodb/types/UserType";
 
-    constructor(userID: number, availableChats: number[]) {
-        this.userID = userID;
-        this.availableChats = availableChats;
+export default class UserData {
+    availableChats: string[];
+    userID: string;
+
+    constructor(data: UserType) {
+        this.userID = data._id;
+        this.availableChats = data.availableChats;
     }
 }

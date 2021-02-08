@@ -21,6 +21,8 @@ import MyQuery from "./schema"
 import SocketAuthentication from './services/authentication/SocketAuthentication';
 import { SocketManager } from './services/socket.io/SocketManager';
 import CookieManager from './services/authentication/CookieManager';
+import MongoDBConnector from './services/mongodb/MongoDBConnector';
+import QueryManager from './services/mongodb/QueryManager';
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -45,6 +47,9 @@ let getIO = () => {
 }
 
 export {getIO, io}
+
+MongoDBConnector.connect().then(async () => {
+});
 
 app.use('/graphql', graphqlHTTP({
     schema: MyQuery,

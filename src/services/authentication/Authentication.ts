@@ -1,4 +1,5 @@
 import { GraphQLArgumentConfig, GraphQLString } from "graphql";
+import UserData from "../UserData";
 import SocketAuthentication from "./SocketAuthentication";
 
 
@@ -19,4 +20,10 @@ export function Authenticate(data: AuthenticationDataTypes) {
         return true;
     }
     return false;
+}
+
+export function HasChatAccess(userData: UserData, chatID: string) {
+    return true;
+
+    return userData.availableChats.includes(chatID);
 }
